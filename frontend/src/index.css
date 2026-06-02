@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Josefin+Sans:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary:       #1B5E20;
+    --primary-light: #2E7D32;
+    --primary-dark:  #154A19;
+    --accent:        #F9A825;
+    --accent-light:  #FDD835;
+    --radius-card:   16px;
+    --shadow-card:   0 4px 24px rgba(0,0,0,0.08);
+    --shadow-hover:  0 8px 40px rgba(27,94,32,0.18);
+    --transition:    all 0.22s cubic-bezier(.4,0,.2,1);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    @apply font-sans text-gray-800 bg-gray-50;
+    font-family: 'Josefin Sans', 'Inter', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Cinzel', 'Inter', serif;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  /* ── Boutons ───────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-[#1B5E20] hover:bg-[#2E7D32] active:bg-[#154A19]
+           text-white font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 ease-out
+           shadow-md hover:shadow-lg hover:-translate-y-0.5
+           cursor-pointer select-none
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+    min-height: 48px;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2
+           bg-[#F9A825] hover:bg-[#FDD835] active:bg-[#F0A000]
+           text-gray-900 font-bold px-6 py-3 rounded-xl
+           transition-all duration-200 ease-out
+           shadow-md hover:shadow-lg hover:-translate-y-0.5
+           cursor-pointer select-none;
+    min-height: 48px;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2
+           border-2 border-[#1B5E20] text-[#1B5E20]
+           hover:bg-[#1B5E20] hover:text-white
+           font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 ease-out cursor-pointer;
+    min-height: 48px;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           text-gray-600 hover:text-[#1B5E20] hover:bg-green-50
+           font-medium px-4 py-2 rounded-xl
+           transition-all duration-200 cursor-pointer;
+  }
+
+  /* ── Inputs ────────────────────────────────────────────────── */
+  .input {
+    @apply w-full border border-gray-200 rounded-xl px-4 py-3
+           bg-white text-gray-800 placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-[#1B5E20]/30
+           focus:border-[#1B5E20] transition-all duration-200;
+    min-height: 48px;
+    font-family: 'Josefin Sans', sans-serif;
+  }
+  .input:hover:not(:focus) { @apply border-gray-300; }
+
+  /* ── Cards ─────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 cursor-pointer;
+    box-shadow: var(--shadow-card);
+    transition: var(--transition);
+  }
+  .card:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-3px);
+  }
+
+  .glass-card {
+    @apply rounded-2xl border border-white/30 backdrop-blur-xl;
+    background: rgba(255,255,255,0.85);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+
+  /* ── Badges ────────────────────────────────────────────────── */
+  .badge { @apply inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full; }
+  .badge-actif    { @apply badge bg-emerald-100 text-emerald-700; }
+  .badge-attente  { @apply badge bg-amber-100 text-amber-700; }
+  .badge-annule   { @apply badge bg-red-100 text-red-600; }
+  .badge-termine  { @apply badge bg-gray-100 text-gray-600; }
+  .badge-confirme { @apply badge bg-blue-100 text-blue-700; }
+
+  /* ── Skeleton ──────────────────────────────────────────────── */
+  .skeleton {
+    @apply bg-gray-200 rounded-xl animate-pulse;
+  }
+
+  /* ── Section heading ───────────────────────────────────────── */
+  .section-title {
+    @apply text-2xl sm:text-3xl font-bold text-gray-900;
+    font-family: 'Cinzel', serif;
+  }
+}
+
+/* ── Leaflet ────────────────────────────────────────────────── */
+.leaflet-container { z-index: 1; border-radius: 16px; }
+.leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+
+/* ── Scrollbar slim ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ── Animations custom ─────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+.animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+.animate-fade-in-up-delay { animation: fadeInUp 0.5s ease-out 0.15s both; }

@@ -1,0 +1,29 @@
+# Node
+frontend/node_modules/
+mock-server/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.production
+
+# PHP
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/uploads/placeholder/
+
+# Logs
+*.log
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Env
+.env
+.env.local
+config.local.php
