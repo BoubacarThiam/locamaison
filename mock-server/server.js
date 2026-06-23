@@ -150,11 +150,12 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return err(res, 'Email et mot de passe requis');
-    const { data: user } = await sb.from('users').select('*')
+    const { data: user, error } = await sb.from('users').select('*')
       .eq('email', email).eq('password', password).eq('is_active', true).maybeSingle();
+    if (error) return err(res, 'Erreur base de données: ' + error.message, 500);
     if (!user) return err(res, 'Email ou mot de passe incorrect', 401);
     ok(res, { token: makeToken(user), user: safe(user) });
-  } catch { err(res, 'Erreur serveur', 500); }
+  } catch (e) { err(res, 'Erreur serveur: ' + e.message, 500); }
 });
 
 app.get('/api/auth/me', async (req, res) => {
@@ -211,9 +212,9 @@ app.get('/api/logements', async (req, res) => {
     q = q.order(s.col, { ascending: s.asc }).range((page-1)*limit, page*limit-1);
 
     const { data, count, error } = await q;
-    if (error) return err(res, 'Erreur base de données', 500);
+    if (error) return err(res, 'Erreur base de données: ' + error.message, 500);
     res.json({ success: true, data: data || [], pagination: { total: count||0, page, limit, pages: Math.ceil((count||0)/limit) } });
-  } catch { err(res, 'Erreur serveur', 500); }
+  } catch (e) { err(res, 'Erreur serveur: ' + e.message, 500); }
 });
 
 app.get('/api/logements/:id', async (req, res) => {
@@ -254,8 +255,14 @@ app.post('/api/logements', async (req, res) => {
     const region   = regions.find(r => r.id == region_id);
     const quartier = req.body.quartier_id ? quartiers.find(q => q.id == req.body.quartier_id) : null;
 
-    // Convertit les chaînes vides en null pour les champs numériques
-    const num = v => (v !== '' && v != null) ? parseInt(v)   : null;
+    // Convertit les chaînes vides en null pour les champs numériques.
+    // Retire les espaces/points/virgules utilisés comme séparateurs de milliers
+    // (ex: "125 000" ou "125.000") avant parseInt, sinon parseInt("125 000") = 125.
+    const num = v => {
+      if (v === '' || v == null) return null;
+      const cleaned = String(v).replace(/[^\d]/g, '');
+      return cleaned === '' ? null : parseInt(cleaned, 10);
+    };
     const flt = v => (v !== '' && v != null) ? parseFloat(v) : null;
 
     const { data: newL, error } = await sb.from('logements').insert({
@@ -300,7 +307,11 @@ app.put('/api/logements/:id', async (req, res) => {
     if (!existing) return err(res, 'Logement introuvable', 404);
     if (existing.proprietaire_id !== u.id && u.role !== 'admin') return err(res, 'Accès refusé', 403);
 
-    const num = v => (v !== '' && v != null) ? parseInt(v)   : null;
+    const num = v => {
+      if (v === '' || v == null) return null;
+      const cleaned = String(v).replace(/[^\d]/g, '');
+      return cleaned === '' ? null : parseInt(cleaned, 10);
+    };
     const flt = v => (v !== '' && v != null) ? parseFloat(v) : null;
 
     const patch = {};

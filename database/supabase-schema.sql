@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS logements (
   note_moyenne       DECIMAL(3,1) NOT NULL DEFAULT 0,
   nb_avis            INTEGER      NOT NULL DEFAULT 0,
   photo_principale   TEXT,
+  photos_urls        TEXT[]       NOT NULL DEFAULT '{}',
   is_verified        BOOLEAN      NOT NULL DEFAULT false,
   proprio_nom        VARCHAR(100),
   proprio_prenom     VARCHAR(100),
