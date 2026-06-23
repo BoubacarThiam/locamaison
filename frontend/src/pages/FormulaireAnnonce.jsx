@@ -23,6 +23,26 @@ const EQUIPEMENTS_LABELS = {
   plage:'Accès plage', ventilateur:'Ventilateur', terrasse:'Terrasse', cour:'Cour',
 };
 
+// Compresse une image avant upload (max 1200px, qualité 80%)
+function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.src = url;
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 1200;
+      const scale  = Math.min(MAX / img.width, MAX / img.height, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+  });
+}
+
 function MapPicker({ position, onChange }) {
   useMapEvents({
     click(e) { onChange([e.latlng.lat, e.latlng.lng]); },
@@ -112,20 +132,25 @@ export default function FormulaireAnnonce() {
 
   const uploadPhotos = async () => {
     if (!photos.length && !isEdit) {
-      setError('Ajoutez au moins 3 photos.');
+      setError('Ajoutez au moins une photo.');
       return false;
     }
     if (!photos.length) return true;
-    const fd = new FormData();
-    photos.forEach(p => fd.append('photos[]', p));
+
     setLoading(true);
+    setError('');
     try {
+      // Compresse les photos avant envoi
+      const compressed = await Promise.all(photos.map(compressImage));
+      const fd = new FormData();
+      compressed.forEach(f => fd.append('photos[]', f));
+
       const { data } = await api.post(`/logements/${createdId}/photos`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setUploadedPhotos(data.data || []);
     } catch (e) {
-      setError(e.response?.data?.message || 'Erreur upload photos');
+      setError(e.response?.data?.message || 'Erreur lors de l\'upload des photos');
       return false;
     } finally {
       setLoading(false);
@@ -305,13 +330,13 @@ export default function FormulaireAnnonce() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Prix par mois (FCFA)</label>
-                  <input type="number" min="0" value={form.prix_par_mois}
+                  <input type="text" inputMode="numeric" value={form.prix_par_mois}
                          onChange={e => set('prix_par_mois', e.target.value)} className="input"
                          placeholder="Ex : 250000" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Prix par nuit (FCFA)</label>
-                  <input type="number" min="0" value={form.prix_par_nuit}
+                  <input type="text" inputMode="numeric" value={form.prix_par_nuit}
                          onChange={e => set('prix_par_nuit', e.target.value)} className="input"
                          placeholder="Ex : 15000" />
                 </div>
@@ -326,29 +351,42 @@ export default function FormulaireAnnonce() {
           {step === 3 && (
             <>
               <h2 className="text-lg font-bold text-gray-900">Photos du logement</h2>
-              <p className="text-sm text-gray-500">Minimum 3 photos, maximum 10. La première sera la photo principale.</p>
+              <p className="text-sm text-gray-500">
+                Ajoutez jusqu'à 10 photos. La première sera la photo principale.
+                Les images seront compressées automatiquement.
+              </p>
+
               <div
                 onClick={() => fileRef.current?.click()}
                 className="border-2 border-dashed border-[#1B5E20] rounded-xl p-8 text-center cursor-pointer hover:bg-[#E8F5E9] transition-colors"
               >
                 <p className="text-4xl mb-2">📷</p>
-                <p className="font-medium text-[#1B5E20]">Cliquez pour ajouter des photos</p>
+                <p className="font-medium text-[#1B5E20]">
+                  {photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''} sélectionnée${photos.length > 1 ? 's' : ''} — cliquer pour en ajouter` : 'Cliquez pour sélectionner vos photos'}
+                </p>
                 <p className="text-gray-400 text-sm mt-1">JPG, PNG, WebP — max 5 Mo par photo</p>
                 <input ref={fileRef} type="file" multiple accept="image/*" className="hidden"
-                       onChange={e => setPhotos(prev => [...prev, ...Array.from(e.target.files)])} />
+                       onChange={e => {
+                         const newFiles = Array.from(e.target.files);
+                         setPhotos(prev => [...prev, ...newFiles].slice(0, 10));
+                         e.target.value = '';
+                       }} />
               </div>
+
               {photos.length > 0 && (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
                   {photos.map((f, i) => (
-                    <div key={i} className="relative group">
-                      <img src={URL.createObjectURL(f)} alt="" className="w-full h-24 object-cover rounded-xl" />
+                    <div key={i} className="relative group aspect-square">
+                      <img src={URL.createObjectURL(f)} alt=""
+                           className="w-full h-full object-cover rounded-xl" />
                       {i === 0 && (
-                        <span className="absolute top-1 left-1 bg-[#1B5E20] text-white text-xs px-1.5 py-0.5 rounded">
+                        <span className="absolute top-1 left-1 bg-[#1B5E20] text-white text-xs px-1.5 py-0.5 rounded-md font-medium">
                           Principale
                         </span>
                       )}
-                      <button onClick={() => setPhotos(p => p.filter((_, j) => j !== i))}
-                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setPhotos(p => p.filter((_, j) => j !== i)); }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
                         ×
                       </button>
                     </div>
@@ -369,8 +407,8 @@ export default function FormulaireAnnonce() {
               </h2>
               <p className="text-gray-600 max-w-sm mx-auto">
                 {isEdit
-                  ? 'Vos modifications ont été enregistrées.'
-                  : 'Votre annonce est en attente de validation par notre équipe. Vous serez notifié(e) sous 48h.'}
+                  ? 'Vos modifications ont été enregistrées avec succès.'
+                  : 'Votre annonce est publiée et visible par tous les utilisateurs immédiatement.'}
               </p>
               <button onClick={() => nav('/dashboard/proprietaire')}
                       className="btn-primary mt-6">

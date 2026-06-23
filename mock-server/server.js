@@ -1,28 +1,27 @@
 const express = require('express');
 const cors    = require('cors');
-const app     = express();
+const multer  = require('multer');
+const { createClient } = require('@supabase/supabase-js');
 
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── Données en mémoire ──────────────────────────────────────────
-let users = [
-  { id:1, nom:'Admin',    prenom:'LocaMaison', email:'admin@locamaison.sn',      password:'password', role:'admin',        is_verified:true,  is_active:true, telephone:'+221771234560', avatar:null, created_at:'2024-01-01' },
-  { id:2, nom:'Diallo',   prenom:'Oumar',      email:'oumar.diallo@test.sn',      password:'password', role:'proprietaire', is_verified:true,  is_active:true, telephone:'+221771234561', avatar:null, created_at:'2024-01-02' },
-  { id:3, nom:'Ndiaye',   prenom:'Fatou',      email:'fatou.ndiaye@test.sn',      password:'password', role:'proprietaire', is_verified:true,  is_active:true, telephone:'+221771234562', avatar:null, created_at:'2024-01-03' },
-  { id:4, nom:'Sow',      prenom:'Ibrahima',   email:'ibrahima.sow@test.sn',      password:'password', role:'locataire',    is_verified:false, is_active:true, telephone:'+221771234563', avatar:null, created_at:'2024-01-04' },
-  { id:5, nom:'Ba',       prenom:'Aminata',    email:'aminata.ba@test.sn',        password:'password', role:'locataire',    is_verified:false, is_active:true, telephone:'+221771234564', avatar:null, created_at:'2024-01-05' },
-  { id:6, nom:'Fall',     prenom:'Mamadou',    email:'mamadou.fall@test.sn',      password:'password', role:'locataire',    is_verified:false, is_active:true, telephone:'+221771234565', avatar:null, created_at:'2024-01-06' },
-];
-let nextUserId = 7;
+// ── Supabase ────────────────────────────────────────────────────
+const sb = createClient(
+  process.env.SUPABASE_URL        || '',
+  process.env.SUPABASE_SERVICE_KEY || ''
+);
 
+// ── Données statiques (référentiel géographique) ─────────────────
 const regions = [
   {id:1,nom:'Dakar'},{id:2,nom:'Thiès'},{id:3,nom:'Saint-Louis'},{id:4,nom:'Ziguinchor'},
   {id:5,nom:'Kaolack'},{id:6,nom:'Diourbel'},{id:7,nom:'Louga'},{id:8,nom:'Fatick'},
   {id:9,nom:'Kolda'},{id:10,nom:'Matam'},{id:11,nom:'Tambacounda'},{id:12,nom:'Kaffrine'},
   {id:13,nom:'Sédhiou'},{id:14,nom:'Kédougou'},
 ];
-
 const villes = [
   {id:1,region_id:1,nom:'Dakar'},{id:2,region_id:1,nom:'Pikine'},{id:3,region_id:1,nom:'Guédiawaye'},{id:4,region_id:1,nom:'Rufisque'},{id:5,region_id:1,nom:'Bargny'},
   {id:6,region_id:2,nom:'Thiès'},{id:7,region_id:2,nom:'Mbour'},{id:8,region_id:2,nom:'Tivaouane'},{id:9,region_id:2,nom:'Joal-Fadiouth'},{id:10,region_id:2,nom:'Khombole'},
@@ -39,7 +38,6 @@ const villes = [
   {id:61,region_id:13,nom:'Sédhiou'},{id:62,region_id:13,nom:'Bounkiling'},{id:63,region_id:13,nom:'Goudomp'},{id:64,region_id:13,nom:'Marsassoum'},{id:65,region_id:13,nom:'Samine'},
   {id:66,region_id:14,nom:'Kédougou'},{id:67,region_id:14,nom:'Saraya'},{id:68,region_id:14,nom:'Salémata'},{id:69,region_id:14,nom:'Fongolimbi'},{id:70,region_id:14,nom:'Tomboronkoto'},
 ];
-
 const quartiers = [
   {id:1,ville_id:1,nom:'Plateau'},{id:2,ville_id:1,nom:'Médina'},{id:3,ville_id:1,nom:'Fann - Point E'},
   {id:4,ville_id:1,nom:'Mermoz'},{id:5,ville_id:1,nom:'Sacré-Cœur'},{id:6,ville_id:1,nom:'Les Almadies'},
@@ -51,456 +49,697 @@ const quartiers = [
   {id:22,ville_id:11,nom:'Île de Saint-Louis'},{id:23,ville_id:11,nom:'Sor'},{id:24,ville_id:11,nom:'Langue de Barbarie'},
 ];
 
-let logements = [
-  { id:1,  proprietaire_id:2, titre:'Bel appartement F3 aux Almadies', description:'Superbe appartement meublé avec vue mer, proche plage des Almadies.', type:'appartement', adresse:'Rue des Jasmins, Les Almadies', quartier_id:6, ville_id:1, region_id:1, prix_par_nuit:35000, prix_par_mois:450000, nb_chambres:2, nb_salles_bain:1, superficie_m2:70, meuble:true, statut:'actif', latitude:14.74160, longitude:-17.50480, equipements:['wifi','climatisation','eau_chaude','parking','securite'], note_moyenne:5.0, nb_avis:1, photo_principale:'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop', proprio_nom:'Diallo', proprio_prenom:'Oumar', proprio_telephone:'+221771234561', ville_nom:'Dakar', region_nom:'Dakar', quartier_nom:'Les Almadies', is_verified:true },
-  { id:2,  proprietaire_id:2, titre:'Chambre climatisée au Plateau', description:'Chambre bien équipée dans résidence sécurisée, quartier central.', type:'chambre', adresse:'Avenue Roume, Plateau', quartier_id:1, ville_id:1, region_id:1, prix_par_nuit:15000, prix_par_mois:180000, nb_chambres:1, nb_salles_bain:1, superficie_m2:20, meuble:true, statut:'actif', latitude:14.69185, longitude:-17.44148, equipements:['wifi','climatisation','eau_chaude'], note_moyenne:4.0, nb_avis:1, photo_principale:'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&auto=format&fit=crop', proprio_nom:'Diallo', proprio_prenom:'Oumar', proprio_telephone:'+221771234561', ville_nom:'Dakar', region_nom:'Dakar', quartier_nom:'Plateau', is_verified:true },
-  { id:3,  proprietaire_id:3, titre:'Villa 4 chambres Mermoz', description:'Grande villa avec jardin et piscine, idéale pour famille.', type:'villa', adresse:'Cité Mermoz Extension', quartier_id:4, ville_id:1, region_id:1, prix_par_nuit:80000, prix_par_mois:950000, nb_chambres:4, nb_salles_bain:3, superficie_m2:250, meuble:true, statut:'actif', latitude:14.72441, longitude:-17.47851, equipements:['wifi','climatisation','eau_chaude','parking','piscine','jardin','securite'], note_moyenne:5.0, nb_avis:1, photo_principale:'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&auto=format&fit=crop', proprio_nom:'Ndiaye', proprio_prenom:'Fatou', proprio_telephone:'+221771234562', ville_nom:'Dakar', region_nom:'Dakar', quartier_nom:'Mermoz', is_verified:true },
-  { id:4,  proprietaire_id:2, titre:'Studio moderne centre Thiès', description:'Studio neuf tout équipé, proche transports et marchés.', type:'studio', adresse:'Avenue Léopold Sédar Senghor', quartier_id:13, ville_id:6, region_id:2, prix_par_nuit:10000, prix_par_mois:120000, nb_chambres:1, nb_salles_bain:1, superficie_m2:25, meuble:true, statut:'actif', latitude:14.79122, longitude:-16.92610, equipements:['wifi','climatisation','eau_chaude'], note_moyenne:4.0, nb_avis:1, photo_principale:'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop', proprio_nom:'Diallo', proprio_prenom:'Oumar', proprio_telephone:'+221771234561', ville_nom:'Thiès', region_nom:'Thiès', quartier_nom:'Centre-ville', is_verified:false },
-  { id:5,  proprietaire_id:3, titre:'Appartement F2 Thiès avec terrasse', description:'Appartement calme avec grande terrasse, lumineux.', type:'appartement', adresse:'Quartier Thialy', quartier_id:15, ville_id:6, region_id:2, prix_par_nuit:18000, prix_par_mois:220000, nb_chambres:2, nb_salles_bain:1, superficie_m2:55, meuble:true, statut:'actif', latitude:14.78945, longitude:-16.93150, equipements:['wifi','ventilateur','eau_chaude','terrasse'], note_moyenne:0, nb_avis:0, photo_principale:'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop', proprio_nom:'Ndiaye', proprio_prenom:'Fatou', proprio_telephone:'+221771234562', ville_nom:'Thiès', region_nom:'Thiès', quartier_nom:'Thialy', is_verified:false },
-  { id:6,  proprietaire_id:2, titre:'Maison familiale 3 chambres Thiès', description:'Grande maison avec cour intérieure, idéale pour famille.', type:'maison', adresse:'Randoulène Nord', quartier_id:16, ville_id:6, region_id:2, prix_par_nuit:20000, prix_par_mois:280000, nb_chambres:3, nb_salles_bain:2, superficie_m2:100, meuble:false, statut:'actif', latitude:14.79500, longitude:-16.91800, equipements:['eau_chaude','parking','cour'], note_moyenne:0, nb_avis:0, photo_principale:'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&auto=format&fit=crop', proprio_nom:'Diallo', proprio_prenom:'Oumar', proprio_telephone:'+221771234561', ville_nom:'Thiès', region_nom:'Thiès', quartier_nom:'Randoulène', is_verified:false },
-  { id:7,  proprietaire_id:3, titre:'Chambre coloniale île de Saint-Louis', description:'Charme historique dans le quartier classé UNESCO.', type:'chambre', adresse:'Île de Saint-Louis', quartier_id:22, ville_id:11, region_id:3, prix_par_nuit:20000, prix_par_mois:250000, nb_chambres:1, nb_salles_bain:1, superficie_m2:30, meuble:true, statut:'actif', latitude:16.02938, longitude:-16.49967, equipements:['wifi','climatisation','eau_chaude'], note_moyenne:0, nb_avis:0, photo_principale:'https://images.unsplash.com/photo-1582582621959-48d27397dc69?w=800&auto=format&fit=crop', proprio_nom:'Ndiaye', proprio_prenom:'Fatou', proprio_telephone:'+221771234562', ville_nom:'Saint-Louis', region_nom:'Saint-Louis', quartier_nom:'Île de Saint-Louis', is_verified:true },
-  { id:8,  proprietaire_id:2, titre:'Appartement vue fleuve Saint-Louis', description:'Vue panoramique sur le fleuve Sénégal.', type:'appartement', adresse:'Sor, rue du Fleuve', quartier_id:23, ville_id:11, region_id:3, prix_par_nuit:25000, prix_par_mois:320000, nb_chambres:2, nb_salles_bain:1, superficie_m2:60, meuble:true, statut:'actif', latitude:16.03800, longitude:-16.50200, equipements:['wifi','climatisation','eau_chaude','parking'], note_moyenne:0, nb_avis:0, photo_principale:'https://images.unsplash.com/photo-1599427303058-f04cbcf4756f?w=800&auto=format&fit=crop', proprio_nom:'Diallo', proprio_prenom:'Oumar', proprio_telephone:'+221771234561', ville_nom:'Saint-Louis', region_nom:'Saint-Louis', quartier_nom:'Sor', is_verified:false },
-  { id:9,  proprietaire_id:3, titre:'Bungalow Casamance Ziguinchor', description:'Bungalow typique entouré de verdure.', type:'maison', adresse:'Quartier Lyndiane', quartier_id:null, ville_id:16, region_id:4, prix_par_nuit:15000, prix_par_mois:180000, nb_chambres:2, nb_salles_bain:1, superficie_m2:60, meuble:false, statut:'actif', latitude:12.55870, longitude:-16.27275, equipements:['wifi','ventilateur','eau_chaude','jardin'], note_moyenne:0, nb_avis:0, photo_principale:'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop', proprio_nom:'Ndiaye', proprio_prenom:'Fatou', proprio_telephone:'+221771234562', ville_nom:'Ziguinchor', region_nom:'Ziguinchor', quartier_nom:null, is_verified:false },
-  { id:10, proprietaire_id:3, titre:'Villa balnéaire Cap Skirring', description:'Villa pieds dans l\'eau, accès direct plage privée.', type:'villa', adresse:'Route de la plage', quartier_id:null, ville_id:20, region_id:4, prix_par_nuit:60000, prix_par_mois:720000, nb_chambres:3, nb_salles_bain:2, superficie_m2:180, meuble:true, statut:'actif', latitude:12.39500, longitude:-16.74600, equipements:['wifi','climatisation','eau_chaude','parking','piscine','plage'], note_moyenne:0, nb_avis:0, photo_principale:'https://images.unsplash.com/photo-1615880484746-a134be9a6ecf?w=800&auto=format&fit=crop', proprio_nom:'Ndiaye', proprio_prenom:'Fatou', proprio_telephone:'+221771234562', ville_nom:'Cap Skirring', region_nom:'Ziguinchor', quartier_nom:null, is_verified:true },
-  { id:11, proprietaire_id:2, titre:'Studio Saly bord de mer', description:'Studio climatisé à 200m de la plage de Saly.', type:'studio', adresse:'Saly Portudal, résidence Le Baobab', quartier_id:20, ville_id:7, region_id:2, prix_par_nuit:20000, prix_par_mois:240000, nb_chambres:1, nb_salles_bain:1, superficie_m2:30, meuble:true, statut:'actif', latitude:14.45123, longitude:-16.97240, equipements:['wifi','climatisation','eau_chaude','piscine','plage'], note_moyenne:0, nb_avis:0, photo_principale:'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&auto=format&fit=crop', proprio_nom:'Diallo', proprio_prenom:'Oumar', proprio_telephone:'+221771234561', ville_nom:'Mbour', region_nom:'Thiès', quartier_nom:'Saly Portudal', is_verified:false },
-];
-let nextLogementId = 12;
-
-let reservations = [
-  { id:1, locataire_id:4, logement_id:1, date_debut:'2026-04-01', date_fin:'2026-04-30', type_sejour:'longue_duree', montant_total:450000, statut:'terminee', mode_paiement:'wave', ref_paiement:'WAVE-TEST-0001', logement_titre:'Bel appartement F3 aux Almadies', ville_nom:'Dakar', photo_logement:'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400', proprietaire_id:2, locataire_nom:'Sow', locataire_prenom:'Ibrahima', locataire_tel:'+221771234563', a_laisse_avis:true, created_at:'2026-03-25' },
-  { id:2, locataire_id:5, logement_id:2, date_debut:'2026-05-01', date_fin:'2026-05-31', type_sejour:'longue_duree', montant_total:180000, statut:'confirmee', mode_paiement:'orange_money', ref_paiement:'OM-TEST-0001', logement_titre:'Chambre climatisée au Plateau', ville_nom:'Dakar', photo_logement:'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400', proprietaire_id:2, locataire_nom:'Ba', locataire_prenom:'Aminata', locataire_tel:'+221771234564', a_laisse_avis:false, created_at:'2026-04-20' },
-  { id:3, locataire_id:6, logement_id:3, date_debut:'2026-06-10', date_fin:'2026-06-17', type_sejour:'courte_duree', montant_total:560000, statut:'confirmee', mode_paiement:'wave', ref_paiement:'WAVE-TEST-0002', logement_titre:'Villa 4 chambres Mermoz', ville_nom:'Dakar', photo_logement:'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400', proprietaire_id:3, locataire_nom:'Fall', locataire_prenom:'Mamadou', locataire_tel:'+221771234565', a_laisse_avis:false, created_at:'2026-06-01' },
-];
-let nextResId = 4;
-
-let avis = [
-  { id:1, locataire_id:4, logement_id:1, reservation_id:1, note:5, commentaire:'Excellent appartement, très bien situé aux Almadies !', nom:'Sow', prenom:'Ibrahima', logement_titre:'Bel appartement F3 aux Almadies', created_at:'2026-05-02' },
-];
-let nextAvisId = 2;
-
-let messages = [
-  { id:1, expediteur_id:4, destinataire_id:2, reservation_id:1, contenu:'Bonjour, est-ce que le logement est disponible en juillet ?', lu:true, nom:'Sow', prenom:'Ibrahima', created_at:'2026-05-10T10:00:00' },
-  { id:2, expediteur_id:2, destinataire_id:4, reservation_id:1, contenu:'Oui bien sûr ! Je serais ravi de vous accueillir.', lu:true, nom:'Diallo', prenom:'Oumar', created_at:'2026-05-10T10:30:00' },
-];
-let nextMsgId = 3;
-
-// ── Helpers ────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────
 function makeToken(user) {
-  return Buffer.from(JSON.stringify({ id: user.id, email: user.email, role: user.role, exp: Date.now() + 7*24*3600*1000 })).toString('base64');
+  return Buffer.from(JSON.stringify({
+    id: user.id, email: user.email, role: user.role,
+    nom: user.nom, prenom: user.prenom,
+    exp: Date.now() + 7 * 24 * 3600 * 1000,
+  })).toString('base64');
 }
 function getUser(req) {
   const auth = req.headers.authorization || '';
   if (!auth.startsWith('Bearer ')) return null;
   try {
-    const payload = JSON.parse(Buffer.from(auth.slice(7), 'base64').toString());
-    if (payload.exp < Date.now()) return null;
-    return users.find(u => u.id === payload.id) || null;
+    const p = JSON.parse(Buffer.from(auth.slice(7), 'base64').toString());
+    if (p.exp < Date.now()) return null;
+    return p;
   } catch { return null; }
 }
-function ok(res, data, message = '', code = 200) {
-  res.status(code).json({ success: true, data, message });
-}
-function err(res, message, code = 400) {
-  res.status(code).json({ success: false, data: null, message });
-}
-function paginate(res, items, page, limit) {
-  const total = items.length;
-  const slice = items.slice((page-1)*limit, page*limit);
-  res.json({ success:true, data:slice, pagination:{ total, page, limit, pages: Math.ceil(total/limit) } });
-}
-function safe(u) {
-  const { password, ...rest } = u;
-  return rest;
-}
+function ok(res, data, msg = '', code = 200) { res.status(code).json({ success: true, data, message: msg }); }
+function err(res, msg, code = 400)           { res.status(code).json({ success: false, data: null, message: msg }); }
+function safe(u) { if (!u) return null; const { password, ...rest } = u; return rest; }
+
+// ═══════════════════════════════════════════════
+// RÉFÉRENTIEL GÉOGRAPHIQUE
+// ═══════════════════════════════════════════════
+app.get('/api/regions', (req, res) => ok(res, regions));
+app.get('/api/villes',  (req, res) => {
+  const rid = req.query.region_id;
+  ok(res, rid ? villes.filter(v => v.region_id == rid) : villes);
+});
+app.get('/api/quartiers', (req, res) => {
+  const vid = req.query.ville_id;
+  ok(res, vid ? quartiers.filter(q => q.ville_id == vid) : quartiers);
+});
 
 // ═══════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════
-app.post('/api/auth/register', (req, res) => {
-  const { nom, prenom, email, password, role, telephone } = req.body;
-  if (!nom || !prenom || !email || !password || !role) return err(res, 'Tous les champs sont requis');
-  if (!['locataire','proprietaire'].includes(role)) return err(res, 'Rôle invalide');
-  if (users.find(u => u.email === email)) return err(res, 'Cet email est déjà utilisé', 409);
-  if (password.length < 6) return err(res, 'Mot de passe trop court (min. 6 caractères)');
+// Connexion / inscription via Google OAuth
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential, role = 'locataire' } = req.body;
+    if (!credential) return err(res, 'Token Google manquant');
 
-  const user = { id: nextUserId++, nom, prenom, email, password, role, telephone: telephone||null, avatar:null, piece_identite_url:null, is_verified:false, is_active:true, created_at: new Date().toISOString() };
-  users.push(user);
-  ok(res, { token: makeToken(user), user: safe(user) }, 'Inscription réussie', 201);
+    // Vérifie le token auprès de Google
+    const gRes  = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+    const gData = await gRes.json();
+    if (!gRes.ok || gData.error || !gData.email) return err(res, 'Token Google invalide', 401);
+
+    // Cherche si l'utilisateur existe déjà
+    const { data: existing } = await sb.from('users').select('*').eq('email', gData.email).maybeSingle();
+
+    if (existing) {
+      if (!existing.is_active) return err(res, 'Compte désactivé', 403);
+      // forceRole = mise à jour du rôle lors du premier choix
+      if (req.body.forceRole && validRole !== existing.role) {
+        const { data: updated } = await sb.from('users').update({ role: validRole }).eq('id', existing.id).select().single();
+        return ok(res, { token: makeToken(updated || existing), user: safe(updated || existing), is_new: false });
+      }
+      return ok(res, { token: makeToken(existing), user: safe(existing), is_new: false });
+    }
+
+    // Crée un nouveau compte avec le rôle choisi
+    const validRole = ['locataire', 'proprietaire'].includes(role) ? role : 'locataire';
+    const { data: newUser, error: createErr } = await sb.from('users').insert({
+      nom:         gData.family_name || gData.email.split('@')[0],
+      prenom:      gData.given_name  || '',
+      email:       gData.email,
+      password:    `google_${gData.sub}`,
+      role:        validRole,
+      is_verified: true,
+      is_active:   true,
+      avatar:      gData.picture || null,
+    }).select().single();
+
+    if (createErr) return err(res, 'Erreur lors de la création du compte', 500);
+    ok(res, { token: makeToken(newUser), user: safe(newUser), is_new: true }, 'Compte créé', 201);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return err(res, 'Email et mot de passe requis');
-  const user = users.find(u => u.email === email && u.password === password && u.is_active);
-  if (!user) return err(res, 'Email ou mot de passe incorrect', 401);
-  ok(res, { token: makeToken(user), user: safe(user) });
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { nom, prenom, email, password, role, telephone } = req.body;
+    if (!nom || !prenom || !email || !password || !role) return err(res, 'Tous les champs sont requis');
+    if (!['locataire','proprietaire'].includes(role))    return err(res, 'Rôle invalide');
+    if (password.length < 6)                            return err(res, 'Mot de passe trop court (min. 6 caractères)');
+
+    const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
+    if (existing) return err(res, 'Cet email est déjà utilisé', 409);
+
+    const { data: user, error } = await sb.from('users')
+      .insert({ nom, prenom, email, password, role, telephone: telephone || null })
+      .select().single();
+    if (error) return err(res, 'Erreur lors de la création du compte', 500);
+    ok(res, { token: makeToken(user), user: safe(user) }, 'Inscription réussie', 201);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/auth/me', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  ok(res, safe(user));
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return err(res, 'Email et mot de passe requis');
+    const { data: user } = await sb.from('users').select('*')
+      .eq('email', email).eq('password', password).eq('is_active', true).maybeSingle();
+    if (!user) return err(res, 'Email ou mot de passe incorrect', 401);
+    ok(res, { token: makeToken(user), user: safe(user) });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.put('/api/auth/me', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const { nom, prenom, telephone } = req.body;
-  if (nom) user.nom = nom;
-  if (prenom) user.prenom = prenom;
-  if (telephone) user.telephone = telephone;
-  ok(res, safe(user), 'Profil mis à jour');
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data: user } = await sb.from('users').select('*').eq('id', u.id).maybeSingle();
+    ok(res, safe(user || u));
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-// ═══════════════════════════════════════════════
-// GÉOGRAPHIE
-// ═══════════════════════════════════════════════
-app.get('/api/regions', (_, res) => ok(res, regions));
-
-app.get('/api/villes', (req, res) => {
-  const rid = parseInt(req.query.region_id);
-  ok(res, rid ? villes.filter(v => v.region_id === rid) : villes);
-});
-
-app.get('/api/quartiers', (req, res) => {
-  const vid = parseInt(req.query.ville_id);
-  ok(res, vid ? quartiers.filter(q => q.ville_id === vid) : quartiers);
+app.put('/api/auth/profil', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { nom, prenom, telephone } = req.body;
+    const { data: user, error } = await sb.from('users')
+      .update({ nom, prenom, telephone }).eq('id', u.id).select().single();
+    if (error) return err(res, 'Erreur mise à jour', 500);
+    ok(res, safe(user), 'Profil mis à jour');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
 // ═══════════════════════════════════════════════
 // LOGEMENTS
 // ═══════════════════════════════════════════════
-app.get('/api/logements', (req, res) => {
-  let list = logements.filter(l => l.statut === 'actif');
-  const { region_id, ville_id, quartier_id, type, meuble, nb_chambres, prix_min, prix_max, type_sejour, sort } = req.query;
+app.get('/api/logements', async (req, res) => {
+  try {
+    const { region_id, ville_id, type, meuble, prix_min, prix_max, nb_chambres, type_sejour, sort } = req.query;
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
 
-  if (region_id)   list = list.filter(l => l.region_id   == region_id);
-  if (ville_id)    list = list.filter(l => l.ville_id    == ville_id);
-  if (quartier_id) list = list.filter(l => l.quartier_id == quartier_id);
-  if (type)        list = list.filter(l => l.type        === type);
-  if (meuble !== undefined && meuble !== '') list = list.filter(l => !!l.meuble === (meuble === '1'));
-  if (nb_chambres) {
-    const n = parseInt(nb_chambres);
-    list = list.filter(l => n >= 4 ? l.nb_chambres >= 4 : l.nb_chambres === n);
-  }
-  const priceKey = type_sejour === 'courte_duree' ? 'prix_par_nuit' : 'prix_par_mois';
-  if (prix_min) list = list.filter(l => (l[priceKey]||0) >= parseFloat(prix_min));
-  if (prix_max) list = list.filter(l => (l[priceKey]||0) <= parseFloat(prix_max));
+    let q = sb.from('logements').select('*', { count: 'exact' }).eq('statut', 'actif');
+    if (region_id)  q = q.eq('region_id', parseInt(region_id));
+    if (ville_id)   q = q.eq('ville_id',  parseInt(ville_id));
+    if (type)       q = q.eq('type',       type);
+    if (meuble !== undefined && meuble !== '') q = q.eq('meuble', meuble === '1' || meuble === 'true');
 
-  const sortMap = {
-    prix_asc:  (a,b) => (a[priceKey]||0) - (b[priceKey]||0),
-    prix_desc: (a,b) => (b[priceKey]||0) - (a[priceKey]||0),
-    note:      (a,b) => b.note_moyenne - a.note_moyenne,
-    recent:    (a,b) => b.id - a.id,
-  };
-  list = [...list].sort(sortMap[sort] || sortMap.recent);
+    const priceKey = type_sejour === 'courte_duree' ? 'prix_par_nuit' : 'prix_par_mois';
+    if (prix_min) q = q.gte(priceKey, parseInt(prix_min));
+    if (prix_max) q = q.lte(priceKey, parseInt(prix_max));
+    if (nb_chambres) {
+      const n = parseInt(nb_chambres);
+      q = n >= 4 ? q.gte('nb_chambres', 4) : q.eq('nb_chambres', n);
+    }
 
-  const page  = parseInt(req.query.page)  || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  paginate(res, list, page, limit);
+    const sortMap = {
+      prix_asc:  { col: priceKey,       asc: true  },
+      prix_desc: { col: priceKey,       asc: false },
+      note:      { col: 'note_moyenne', asc: false },
+      recent:    { col: 'id',           asc: false },
+    };
+    const s = sortMap[sort] || sortMap.recent;
+    q = q.order(s.col, { ascending: s.asc }).range((page-1)*limit, page*limit-1);
+
+    const { data, count, error } = await q;
+    if (error) return err(res, 'Erreur base de données', 500);
+    res.json({ success: true, data: data || [], pagination: { total: count||0, page, limit, pages: Math.ceil((count||0)/limit) } });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/logements/:id', (req, res) => {
-  const l = logements.find(l => l.id === parseInt(req.params.id));
-  if (!l) return err(res, 'Logement introuvable', 404);
-  const logAvis = avis.filter(a => a.logement_id === l.id);
-  ok(res, {
-    ...l,
-    photos: [{ id:1, logement_id:l.id, url: l.photo_principale, is_principale:true }],
-    avis:   logAvis,
-    nb_reservations_proprio: reservations.filter(r => r.proprietaire_id === l.proprietaire_id).length,
-  });
+app.get('/api/logements/:id', async (req, res) => {
+  try {
+    const { data: l } = await sb.from('logements').select('*').eq('id', parseInt(req.params.id)).maybeSingle();
+    if (!l) return err(res, 'Logement introuvable', 404);
+    const { data: logAvis } = await sb.from('avis').select('*').eq('logement_id', l.id).order('created_at', { ascending: false });
+    const { count: nbResPropr } = await sb.from('reservations')
+      .select('*', { count: 'exact', head: true }).eq('proprietaire_id', l.proprietaire_id);
+    // Email du propriétaire pour la prise de contact
+    const { data: proprio } = await sb.from('users').select('email').eq('id', l.proprietaire_id).maybeSingle();
+
+    // Construit la liste de photos depuis photos_urls (multi-photo) ou photo_principale (fallback)
+    const photosList = (l.photos_urls && l.photos_urls.length > 0)
+      ? l.photos_urls.map((url, i) => ({ id: i + 1, logement_id: l.id, url, is_principale: i === 0 }))
+      : l.photo_principale
+        ? [{ id: 1, logement_id: l.id, url: l.photo_principale, is_principale: true }]
+        : [];
+
+    ok(res, {
+      ...l,
+      proprio_email: proprio?.email || null,
+      photos: photosList,
+      avis:   logAvis || [],
+      nb_reservations_proprio: nbResPropr || 0,
+    });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.post('/api/logements', (req, res) => {
-  const user = getUser(req);
-  if (!user || user.role !== 'proprietaire') return err(res, 'Accès refusé', 403);
-  const { titre, type, ville_id, region_id } = req.body;
-  if (!titre || !type || !ville_id || !region_id) return err(res, 'Champs requis manquants');
-  const ville = villes.find(v => v.id == ville_id);
-  const region = regions.find(r => r.id == region_id);
-  const newL = {
-    id: nextLogementId++, proprietaire_id: user.id, statut: 'en_attente',
-    note_moyenne: 0, nb_avis: 0,
-    ville_nom: ville?.nom || '', region_nom: region?.nom || '',
-    proprio_nom: user.nom, proprio_prenom: user.prenom, proprio_telephone: user.telephone,
-    photo_principale: null,
-    ...req.body,
-    equipements: req.body.equipements || [],
-    created_at: new Date().toISOString(),
-  };
-  logements.push(newL);
-  ok(res, newL, 'Annonce créée — en attente de validation', 201);
+app.post('/api/logements', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'proprietaire') return err(res, 'Accès refusé', 403);
+    const { titre, type, ville_id, region_id } = req.body;
+    if (!titre || !type || !ville_id || !region_id) return err(res, 'Champs requis manquants');
+
+    const ville    = villes.find(v => v.id == ville_id);
+    const region   = regions.find(r => r.id == region_id);
+    const quartier = req.body.quartier_id ? quartiers.find(q => q.id == req.body.quartier_id) : null;
+
+    // Convertit les chaînes vides en null pour les champs numériques
+    const num = v => (v !== '' && v != null) ? parseInt(v)   : null;
+    const flt = v => (v !== '' && v != null) ? parseFloat(v) : null;
+
+    const { data: newL, error } = await sb.from('logements').insert({
+      titre:             titre,
+      description:       req.body.description   || null,
+      type:              type,
+      adresse:           req.body.adresse        || null,
+      region_id:         num(region_id),
+      ville_id:          num(ville_id),
+      quartier_id:       num(req.body.quartier_id),
+      nb_chambres:       num(req.body.nb_chambres)    || 1,
+      nb_salles_bain:    num(req.body.nb_salles_bain)  || 1,
+      superficie_m2:     num(req.body.superficie_m2),
+      prix_par_mois:     num(req.body.prix_par_mois),
+      prix_par_nuit:     num(req.body.prix_par_nuit),
+      latitude:          flt(req.body.latitude),
+      longitude:         flt(req.body.longitude),
+      meuble:            req.body.meuble === true || req.body.meuble === 'true',
+      equipements:       Array.isArray(req.body.equipements) ? req.body.equipements : [],
+      photo_principale:  req.body.photo_principale || null,
+      proprietaire_id:   u.id,
+      statut:            'actif',
+      note_moyenne:      0,
+      nb_avis:           0,
+      ville_nom:         ville?.nom    || '',
+      region_nom:        region?.nom   || '',
+      quartier_nom:      quartier?.nom || null,
+      proprio_nom:       u.nom,
+      proprio_prenom:    u.prenom,
+      proprio_telephone: u.telephone   || null,
+    }).select().single();
+    if (error) return err(res, 'Erreur création annonce : ' + error.message, 500);
+    ok(res, newL, 'Annonce publiée et visible par tous les utilisateurs', 201);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.put('/api/logements/:id', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const idx = logements.findIndex(l => l.id === parseInt(req.params.id));
-  if (idx < 0) return err(res, 'Logement introuvable', 404);
-  if (logements[idx].proprietaire_id !== user.id && user.role !== 'admin') return err(res, 'Accès refusé', 403);
-  logements[idx] = { ...logements[idx], ...req.body };
-  ok(res, logements[idx], 'Annonce mise à jour');
+app.put('/api/logements/:id', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data: existing } = await sb.from('logements').select('proprietaire_id').eq('id', parseInt(req.params.id)).maybeSingle();
+    if (!existing) return err(res, 'Logement introuvable', 404);
+    if (existing.proprietaire_id !== u.id && u.role !== 'admin') return err(res, 'Accès refusé', 403);
+
+    const num = v => (v !== '' && v != null) ? parseInt(v)   : null;
+    const flt = v => (v !== '' && v != null) ? parseFloat(v) : null;
+
+    const patch = {};
+    if (req.body.titre         !== undefined) patch.titre          = req.body.titre;
+    if (req.body.description   !== undefined) patch.description    = req.body.description   || null;
+    if (req.body.type          !== undefined) patch.type           = req.body.type;
+    if (req.body.adresse       !== undefined) patch.adresse        = req.body.adresse        || null;
+    if (req.body.region_id     !== undefined) patch.region_id      = num(req.body.region_id);
+    if (req.body.ville_id      !== undefined) patch.ville_id       = num(req.body.ville_id);
+    if (req.body.quartier_id   !== undefined) patch.quartier_id    = num(req.body.quartier_id);
+    if (req.body.nb_chambres   !== undefined) patch.nb_chambres    = num(req.body.nb_chambres)   || 1;
+    if (req.body.nb_salles_bain!== undefined) patch.nb_salles_bain = num(req.body.nb_salles_bain) || 1;
+    if (req.body.superficie_m2 !== undefined) patch.superficie_m2  = num(req.body.superficie_m2);
+    if (req.body.prix_par_mois !== undefined) patch.prix_par_mois  = num(req.body.prix_par_mois);
+    if (req.body.prix_par_nuit !== undefined) patch.prix_par_nuit  = num(req.body.prix_par_nuit);
+    if (req.body.latitude      !== undefined) patch.latitude       = flt(req.body.latitude);
+    if (req.body.longitude     !== undefined) patch.longitude      = flt(req.body.longitude);
+    if (req.body.meuble        !== undefined) patch.meuble         = req.body.meuble === true || req.body.meuble === 'true';
+    if (req.body.equipements   !== undefined) patch.equipements    = Array.isArray(req.body.equipements) ? req.body.equipements : [];
+    if (req.body.statut        !== undefined) patch.statut         = req.body.statut;
+
+    const { data: updated, error } = await sb.from('logements').update(patch).eq('id', parseInt(req.params.id)).select().single();
+    if (error) return err(res, 'Erreur mise à jour : ' + error.message, 500);
+    ok(res, updated, 'Annonce mise à jour');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.delete('/api/logements/:id', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const idx = logements.findIndex(l => l.id === parseInt(req.params.id));
-  if (idx < 0) return err(res, 'Logement introuvable', 404);
-  logements.splice(idx, 1);
-  ok(res, null, 'Annonce supprimée');
+app.delete('/api/logements/:id', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data: existing } = await sb.from('logements').select('proprietaire_id').eq('id', parseInt(req.params.id)).maybeSingle();
+    if (!existing) return err(res, 'Logement introuvable', 404);
+    if (existing.proprietaire_id !== u.id && u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    await sb.from('logements').delete().eq('id', parseInt(req.params.id));
+    ok(res, null, 'Annonce supprimée');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.post('/api/logements/:id/photos', (req, res) => {
-  ok(res, [{ id: Date.now(), url: '/uploads/photo_mock.jpg', is_principale: true }], 'Photos téléchargées', 201);
+app.post('/api/logements/:id/photos', upload.array('photos[]', 10), async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+
+    const logId = parseInt(req.params.id);
+    const files  = req.files || [];
+    if (!files.length) return err(res, 'Aucune photo reçue', 400);
+
+    // Crée le bucket Supabase Storage s'il n'existe pas
+    const { data: buckets } = await sb.storage.listBuckets();
+    if (!(buckets || []).some(b => b.name === 'Photos')) {
+      await sb.storage.createBucket('Photos', { public: true, fileSizeLimit: 5242880 });
+    }
+
+    const urls = [];
+    for (const file of files) {
+      const ext  = (file.originalname.split('.').pop() || 'jpg').toLowerCase();
+      const path = `logement-${logId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await sb.storage.from('Photos').upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+      if (upErr) continue;
+      const { data: pub } = sb.storage.from('Photos').getPublicUrl(path);
+      if (pub?.publicUrl) urls.push(pub.publicUrl);
+    }
+
+    if (!urls.length) return err(res, 'Erreur lors de l\'upload des photos', 500);
+
+    // Récupère les photos existantes et concatène les nouvelles
+    const { data: existing } = await sb.from('logements').select('photos_urls,photo_principale').eq('id', logId).maybeSingle();
+    const prevUrls = existing?.photos_urls || (existing?.photo_principale ? [existing.photo_principale] : []);
+    const allUrls  = [...prevUrls.filter(u => !u.includes('unsplash')), ...urls]; // remplace les placeholders
+
+    // Tente la mise à jour avec photos_urls ; si la colonne n'existe pas encore → fallback
+    const { error: updateErr } = await sb.from('logements').update({
+      photo_principale: allUrls[0],
+      photos_urls:      allUrls,
+    }).eq('id', logId);
+
+    if (updateErr) {
+      // Colonne photos_urls absente : stocke seulement la photo principale
+      await sb.from('logements').update({ photo_principale: allUrls[0] }).eq('id', logId);
+    }
+
+    ok(res, urls.map((url, i) => ({ id: i + 1, url, is_principale: i === 0 })), 'Photos enregistrées', 201);
+  } catch (e) { err(res, 'Erreur serveur', 500); }
+});
+
+// Demande rapide de location (alerte directe au propriétaire)
+app.post('/api/logements/:id/demande', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Connectez-vous pour envoyer une demande', 401);
+    const { data: log } = await sb.from('logements').select('*').eq('id', parseInt(req.params.id)).eq('statut', 'actif').maybeSingle();
+    if (!log) return err(res, 'Logement introuvable', 404);
+    if (log.proprietaire_id === u.id) return err(res, 'Vous ne pouvez pas louer votre propre bien', 400);
+    await sb.from('notifications').insert({
+      proprietaire_id: log.proprietaire_id,
+      type: 'demande_location',
+      data: {
+        logement_id: log.id, logement_titre: log.titre,
+        locataire_nom: u.nom, locataire_prenom: u.prenom,
+        locataire_email: u.email, locataire_tel: u.telephone || '',
+        message: req.body.message || 'Je suis intéressé par ce logement.',
+      },
+      lu: false,
+    });
+    ok(res, null, 'Votre demande a été envoyée au propriétaire', 201);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
 // ═══════════════════════════════════════════════
 // PROPRIÉTAIRE
 // ═══════════════════════════════════════════════
-app.get('/api/proprietaire/dashboard', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const mes = logements.filter(l => l.proprietaire_id === user.id);
-  const mesRes = reservations.filter(r => mes.some(l => l.id === r.logement_id));
-  ok(res, {
-    total_annonces: mes.length,
-    annonces_actives: mes.filter(l => l.statut === 'actif').length,
-    en_attente: mes.filter(l => l.statut === 'en_attente').length,
-    reservations_actives: mesRes.filter(r => r.statut === 'confirmee').length,
-    revenus_mois: mesRes.filter(r => r.statut === 'confirmee').reduce((s,r) => s + r.montant_total, 0),
-    note_moyenne: mes.reduce((s,l) => s + (l.note_moyenne||0), 0) / (mes.length || 1),
-  });
+app.get('/api/proprietaire/dashboard', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data: mes } = await sb.from('logements').select('id,statut,note_moyenne').eq('proprietaire_id', u.id);
+    const mesIds = (mes||[]).map(l => l.id);
+    const { data: mesRes } = mesIds.length
+      ? await sb.from('reservations').select('statut,montant_total').in('logement_id', mesIds)
+      : { data: [] };
+    const noteAvg = (mes||[]).length ? (mes.reduce((s,l) => s + (l.note_moyenne||0), 0) / mes.length) : 0;
+    ok(res, {
+      total_annonces:       mes?.length || 0,
+      annonces_actives:     mes?.filter(l => l.statut === 'actif').length || 0,
+      en_attente:           mes?.filter(l => l.statut === 'en_attente').length || 0,
+      reservations_actives: mesRes?.filter(r => r.statut === 'confirmee').length || 0,
+      revenus_mois:         mesRes?.filter(r => r.statut === 'confirmee').reduce((s,r) => s+r.montant_total, 0) || 0,
+      note_moyenne:         Math.round(noteAvg * 10) / 10,
+    });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/proprietaire/annonces', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  ok(res, logements.filter(l => l.proprietaire_id === user.id));
+app.get('/api/proprietaire/annonces', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data } = await sb.from('logements').select('*').eq('proprietaire_id', u.id).order('created_at', { ascending: false });
+    ok(res, data || []);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/proprietaire/reservations', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const mes = logements.filter(l => l.proprietaire_id === user.id).map(l => l.id);
-  ok(res, reservations.filter(r => mes.includes(r.logement_id)));
+app.get('/api/proprietaire/reservations', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data } = await sb.from('reservations').select('*').eq('proprietaire_id', u.id).order('created_at', { ascending: false });
+    ok(res, data || []);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/proprietaire/messages', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const convMap = {};
-  messages.filter(m => m.expediteur_id === user.id || m.destinataire_id === user.id).forEach(m => {
-    const otherId = m.expediteur_id === user.id ? m.destinataire_id : m.expediteur_id;
-    convMap[otherId] = m;
-  });
-  ok(res, Object.entries(convMap).map(([interlocuteur_id, m]) => {
-    const other = users.find(u => u.id === parseInt(interlocuteur_id));
-    return { interlocuteur_id: parseInt(interlocuteur_id), nom: other?.nom, prenom: other?.prenom, avatar: other?.avatar, dernier_message: m.contenu, created_at: m.created_at, non_lus: 0 };
-  }));
+app.get('/api/proprietaire/messages', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data: msgs } = await sb.from('messages').select('*')
+      .or(`expediteur_id.eq.${u.id},destinataire_id.eq.${u.id}`)
+      .order('created_at', { ascending: false });
+    const convMap = {};
+    (msgs||[]).forEach(m => {
+      const otherId = m.expediteur_id === u.id ? m.destinataire_id : m.expediteur_id;
+      if (!convMap[otherId]) convMap[otherId] = { interlocuteur_id: otherId, nom: m.nom, prenom: m.prenom, dernier_message: m.contenu, created_at: m.created_at, non_lus: 0 };
+      if (!m.lu && m.destinataire_id === u.id) convMap[otherId].non_lus++;
+    });
+    ok(res, Object.values(convMap));
+  } catch { err(res, 'Erreur serveur', 500); }
+});
+
+app.get('/api/proprietaire/notifications', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data } = await sb.from('notifications').select('*').eq('proprietaire_id', u.id).order('created_at', { ascending: false });
+    ok(res, data || []);
+  } catch { err(res, 'Erreur serveur', 500); }
+});
+
+app.put('/api/proprietaire/notifications/read', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    await sb.from('notifications').update({ lu: true }).eq('proprietaire_id', u.id).eq('lu', false);
+    ok(res, null, 'Notifications marquées comme lues');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
 // ═══════════════════════════════════════════════
 // LOCATAIRE
 // ═══════════════════════════════════════════════
-app.get('/api/locataire/reservations', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  ok(res, reservations.filter(r => r.locataire_id === user.id));
+app.get('/api/locataire/reservations', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data } = await sb.from('reservations').select('*').eq('locataire_id', u.id).order('created_at', { ascending: false });
+    ok(res, data || []);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/locataire/messages', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  ok(res, messages.filter(m => m.expediteur_id === user.id || m.destinataire_id === user.id));
+app.get('/api/locataire/messages', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data } = await sb.from('messages').select('*')
+      .or(`expediteur_id.eq.${u.id},destinataire_id.eq.${u.id}`)
+      .order('created_at');
+    ok(res, data || []);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
 // ═══════════════════════════════════════════════
 // RÉSERVATIONS
 // ═══════════════════════════════════════════════
-app.post('/api/reservations', (req, res) => {
-  const user = getUser(req);
-  if (!user || user.role !== 'locataire') return err(res, 'Accès refusé', 403);
-  const { logement_id, date_debut, date_fin, type_sejour, mode_paiement } = req.body;
-  const log = logements.find(l => l.id == logement_id && l.statut === 'actif');
-  if (!log) return err(res, 'Logement indisponible', 404);
-  const jours = Math.max(1, Math.round((new Date(date_fin) - new Date(date_debut)) / 86400000));
-  const montant = type_sejour === 'courte_duree' ? jours * log.prix_par_nuit : Math.ceil(jours/30) * log.prix_par_mois;
-  const newR = { id: nextResId++, locataire_id: user.id, logement_id: parseInt(logement_id), date_debut, date_fin, type_sejour, montant_total: montant, statut: 'en_attente', mode_paiement, ref_paiement: null, logement_titre: log.titre, ville_nom: log.ville_nom, photo_logement: log.photo_principale, proprietaire_id: log.proprietaire_id, locataire_nom: user.nom, locataire_prenom: user.prenom, locataire_tel: user.telephone, a_laisse_avis: false, created_at: new Date().toISOString() };
-  reservations.push(newR);
-  ok(res, newR, 'Réservation créée', 201);
+app.post('/api/reservations', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'locataire') return err(res, 'Accès refusé', 403);
+    const { logement_id, date_debut, date_fin, type_sejour, mode_paiement } = req.body;
+    const { data: log } = await sb.from('logements').select('*').eq('id', parseInt(logement_id)).eq('statut', 'actif').maybeSingle();
+    if (!log) return err(res, 'Logement indisponible', 404);
+    const jours = Math.max(1, Math.round((new Date(date_fin) - new Date(date_debut)) / 86400000));
+    const montant = type_sejour === 'courte_duree' ? jours * log.prix_par_nuit : Math.ceil(jours/30) * log.prix_par_mois;
+    const { data: newR, error } = await sb.from('reservations').insert({
+      locataire_id: u.id, logement_id: parseInt(logement_id), proprietaire_id: log.proprietaire_id,
+      date_debut, date_fin, type_sejour, montant_total: montant, statut: 'en_attente', mode_paiement,
+      logement_titre: log.titre, ville_nom: log.ville_nom, photo_logement: log.photo_principale,
+      locataire_nom: u.nom, locataire_prenom: u.prenom, locataire_tel: u.telephone || '',
+      a_laisse_avis: false,
+    }).select().single();
+    if (error) return err(res, 'Erreur création réservation', 500);
+    // Alerte au propriétaire
+    await sb.from('notifications').insert({
+      proprietaire_id: log.proprietaire_id,
+      type: 'nouvelle_reservation',
+      data: {
+        reservation_id: newR.id, logement_titre: log.titre,
+        locataire_nom: u.nom, locataire_prenom: u.prenom, locataire_tel: u.telephone || '',
+        montant_total: montant, date_debut, date_fin, type_sejour,
+      },
+      lu: false,
+    });
+    ok(res, newR, 'Réservation créée', 201);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.put('/api/reservations/:id/statut', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const r = reservations.find(r => r.id === parseInt(req.params.id));
-  if (!r) return err(res, 'Réservation introuvable', 404);
-  r.statut = req.body.statut;
-  ok(res, { statut: r.statut }, 'Statut mis à jour');
+app.put('/api/reservations/:id/statut', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data: updated, error } = await sb.from('reservations')
+      .update({ statut: req.body.statut }).eq('id', parseInt(req.params.id)).select().single();
+    if (error) return err(res, 'Erreur mise à jour', 500);
+    ok(res, { statut: updated.statut }, 'Statut mis à jour');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
 // ═══════════════════════════════════════════════
 // MESSAGERIE
 // ═══════════════════════════════════════════════
-app.post('/api/messages', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const msg = { id: nextMsgId++, expediteur_id: user.id, destinataire_id: parseInt(req.body.destinataire_id), reservation_id: req.body.reservation_id || null, contenu: req.body.contenu, lu: false, nom: user.nom, prenom: user.prenom, created_at: new Date().toISOString() };
-  messages.push(msg);
-  ok(res, { id: msg.id }, 'Message envoyé', 201);
+app.post('/api/messages', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const { data, error } = await sb.from('messages').insert({
+      expediteur_id: u.id, destinataire_id: parseInt(req.body.destinataire_id),
+      reservation_id: req.body.reservation_id || null, contenu: req.body.contenu,
+      lu: false, nom: u.nom, prenom: u.prenom,
+    }).select().single();
+    if (error) return err(res, 'Erreur envoi message', 500);
+    ok(res, { id: data.id }, 'Message envoyé', 201);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/messages/:userId', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const otherId = parseInt(req.params.userId);
-  const conv = messages.filter(m => (m.expediteur_id === user.id && m.destinataire_id === otherId) || (m.expediteur_id === otherId && m.destinataire_id === user.id));
-  ok(res, conv);
+app.get('/api/messages/:userId', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    const otherId = parseInt(req.params.userId);
+    const { data } = await sb.from('messages').select('*')
+      .or(`and(expediteur_id.eq.${u.id},destinataire_id.eq.${otherId}),and(expediteur_id.eq.${otherId},destinataire_id.eq.${u.id})`)
+      .order('created_at');
+    ok(res, data || []);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.put('/api/messages/lu/:fromId', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  messages.filter(m => m.expediteur_id === parseInt(req.params.fromId) && m.destinataire_id === user.id).forEach(m => m.lu = true);
-  ok(res, null, 'Messages lus');
+app.put('/api/messages/lu/:fromId', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u) return err(res, 'Non authentifié', 401);
+    await sb.from('messages').update({ lu: true })
+      .eq('expediteur_id', parseInt(req.params.fromId)).eq('destinataire_id', u.id);
+    ok(res, null, 'Messages lus');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
 // ═══════════════════════════════════════════════
 // AVIS
 // ═══════════════════════════════════════════════
-app.post('/api/avis', (req, res) => {
-  const user = getUser(req);
-  if (!user || user.role !== 'locataire') return err(res, 'Accès refusé', 403);
-  const { logement_id, reservation_id, note, commentaire } = req.body;
-  const res_ = reservations.find(r => r.id == reservation_id && r.locataire_id === user.id && r.statut === 'terminee');
-  if (!res_) return err(res, 'Réservation terminée introuvable', 404);
-  if (avis.find(a => a.reservation_id == reservation_id)) return err(res, 'Avis déjà laissé', 409);
-  const n = parseInt(note);
-  if (n < 1 || n > 5) return err(res, 'Note entre 1 et 5');
-  const newA = { id: nextAvisId++, locataire_id: user.id, logement_id: parseInt(logement_id), reservation_id: parseInt(reservation_id), note: n, commentaire, nom: user.nom, prenom: user.prenom, logement_titre: '', created_at: new Date().toISOString() };
-  avis.push(newA);
-  res_.a_laisse_avis = true;
-  const log = logements.find(l => l.id === parseInt(logement_id));
-  if (log) { const logAvis = avis.filter(a => a.logement_id === log.id); log.note_moyenne = logAvis.reduce((s,a) => s+a.note, 0) / logAvis.length; log.nb_avis = logAvis.length; }
-  ok(res, { id: newA.id }, 'Avis publié', 201);
-});
-
-// ═══════════════════════════════════════════════
-// PAIEMENTS
-// ═══════════════════════════════════════════════
-app.post('/api/paiements/initier', (req, res) => {
-  const user = getUser(req);
-  if (!user) return err(res, 'Non authentifié', 401);
-  const { reservation_id, mode } = req.body;
-  const r = reservations.find(r => r.id == reservation_id);
-  if (!r) return err(res, 'Réservation introuvable', 404);
-  const ref = 'LM-' + Math.random().toString(36).substring(2,10).toUpperCase();
-  r.ref_paiement = ref;
-  if (mode === 'especes') { ok(res, { ref, message: 'Réservation créée. Réglez en espèces.' }); return; }
-  // Simule un checkout_url — redirige vers /reservation/succes directement
-  ok(res, { ref, checkout_url: `http://localhost:3000/reservation/succes?ref=${ref}` });
-});
-
-app.post('/api/paiements/webhook', (req, res) => { res.json({ received: true }); });
-
-app.get('/api/paiements/verifier/:ref', (req, res) => {
-  const r = reservations.find(r => r.ref_paiement === req.params.ref);
-  if (!r) return err(res, 'Référence introuvable', 404);
-  if (r.statut === 'en_attente') r.statut = 'confirmee';
-  ok(res, { statut: r.statut, paid: true, montant: r.montant_total, ref: req.params.ref });
+app.post('/api/avis', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'locataire') return err(res, 'Accès refusé', 403);
+    const { logement_id, reservation_id, note, commentaire } = req.body;
+    const { data: resv } = await sb.from('reservations').select('*')
+      .eq('id', parseInt(reservation_id)).eq('locataire_id', u.id).eq('statut', 'terminee').maybeSingle();
+    if (!resv) return err(res, 'Réservation terminée introuvable', 404);
+    const { data: existing } = await sb.from('avis').select('id').eq('reservation_id', parseInt(reservation_id)).maybeSingle();
+    if (existing) return err(res, 'Avis déjà laissé', 409);
+    const n = parseInt(note);
+    if (n < 1 || n > 5) return err(res, 'Note entre 1 et 5');
+    const { data: newA, error } = await sb.from('avis').insert({
+      locataire_id: u.id, logement_id: parseInt(logement_id),
+      reservation_id: parseInt(reservation_id), note: n, commentaire,
+      nom: u.nom, prenom: u.prenom, logement_titre: resv.logement_titre || '',
+    }).select().single();
+    if (error) return err(res, 'Erreur création avis', 500);
+    // Recalcule la note moyenne
+    const { data: allAvis } = await sb.from('avis').select('note').eq('logement_id', parseInt(logement_id));
+    const avg = allAvis.reduce((s,a) => s + a.note, 0) / allAvis.length;
+    await sb.from('logements').update({ note_moyenne: Math.round(avg * 10) / 10, nb_avis: allAvis.length }).eq('id', parseInt(logement_id));
+    await sb.from('reservations').update({ a_laisse_avis: true }).eq('id', parseInt(reservation_id));
+    ok(res, { id: newA.id }, 'Avis publié', 201);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
 // ═══════════════════════════════════════════════
 // ADMIN
 // ═══════════════════════════════════════════════
-function requireAdmin(req, res) {
-  const user = getUser(req);
-  if (!user || user.role !== 'admin') { err(res, 'Accès refusé', 403); return null; }
-  return user;
-}
-
-app.get('/api/admin/stats', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  ok(res, {
-    total_logements: logements.length,
-    logements_actifs: logements.filter(l => l.statut === 'actif').length,
-    logements_en_attente: logements.filter(l => l.statut === 'en_attente').length,
-    logements_inactifs: logements.filter(l => l.statut === 'inactif').length,
-    total_reservations: reservations.length,
-    reservations_confirmees: reservations.filter(r => r.statut === 'confirmee').length,
-    revenus_mois: reservations.filter(r => r.statut === 'confirmee').reduce((s,r) => s + r.montant_total, 0),
-    nb_locataires: users.filter(u => u.role === 'locataire').length,
-    nb_proprietaires: users.filter(u => u.role === 'proprietaire').length,
-    logements_par_region: regions.map(r => ({ id: r.id, nom: r.nom, nb_annonces: logements.filter(l => l.region_id === r.id && l.statut === 'actif').length })).sort((a,b) => b.nb_annonces - a.nb_annonces),
-  });
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    const [{ count: tL }, { count: tR }, { count: tU }, { count: tLoc }] = await Promise.all([
+      sb.from('logements').select('*', { count: 'exact', head: true }),
+      sb.from('reservations').select('*', { count: 'exact', head: true }),
+      sb.from('users').select('*', { count: 'exact', head: true }),
+      sb.from('users').select('*', { count: 'exact', head: true }).eq('role', 'locataire'),
+    ]);
+    const { data: resCfm } = await sb.from('reservations').select('montant_total').eq('statut', 'confirmee');
+    const { count: lActifs } = await sb.from('logements').select('*', { count: 'exact', head: true }).eq('statut', 'actif');
+    const { count: lAttente } = await sb.from('logements').select('*', { count: 'exact', head: true }).eq('statut', 'en_attente');
+    ok(res, {
+      total_logements: tL || 0, logements_actifs: lActifs || 0,
+      logements_en_attente: lAttente || 0, logements_inactifs: 0,
+      total_reservations: tR || 0, reservations_confirmees: 0,
+      revenus_mois: (resCfm||[]).reduce((s,r) => s + r.montant_total, 0),
+      nb_locataires: tLoc || 0, nb_proprietaires: 0,
+    });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/admin/logements', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  const statut = req.query.statut || 'en_attente';
-  const list   = logements.filter(l => l.statut === statut);
-  const page   = parseInt(req.query.page)  || 1;
-  const limit  = parseInt(req.query.limit) || 20;
-  paginate(res, list, page, limit);
+app.get('/api/admin/logements', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    const page = parseInt(req.query.page) || 1, limit = 20;
+    const { data, count } = await sb.from('logements').select('*', { count: 'exact' })
+      .order('created_at', { ascending: false }).range((page-1)*limit, page*limit-1);
+    res.json({ success:true, data: data||[], pagination:{ total: count||0, page, limit, pages: Math.ceil((count||0)/limit) } });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.put('/api/admin/logements/:id/valider', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  const l = logements.find(l => l.id === parseInt(req.params.id));
-  if (!l) return err(res, 'Logement introuvable', 404);
-  l.statut = req.body.statut;
-  if (req.body.motif_rejet) l.motif_rejet = req.body.motif_rejet;
-  ok(res, null, l.statut === 'actif' ? 'Annonce validée' : 'Annonce rejetée');
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    const page = parseInt(req.query.page) || 1, limit = 20;
+    const { data, count } = await sb.from('users')
+      .select('id,nom,prenom,email,role,is_verified,is_active,created_at', { count: 'exact' })
+      .order('created_at', { ascending: false }).range((page-1)*limit, page*limit-1);
+    res.json({ success:true, data: data||[], pagination:{ total: count||0, page, limit, pages: Math.ceil((count||0)/limit) } });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/admin/users', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  const role = req.query.role;
-  const list = role ? users.filter(u => u.role === role) : users;
-  const page  = parseInt(req.query.page)  || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  paginate(res, list.map(safe), page, limit);
+app.get('/api/admin/avis', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    const page = parseInt(req.query.page) || 1, limit = 20;
+    const { data, count } = await sb.from('avis').select('*', { count: 'exact' })
+      .order('created_at', { ascending: false }).range((page-1)*limit, page*limit-1);
+    res.json({ success:true, data: data||[], pagination:{ total: count||0, page, limit, pages: Math.ceil((count||0)/limit) } });
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.put('/api/admin/users/:id/statut', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  const u = users.find(u => u.id === parseInt(req.params.id));
-  if (!u) return err(res, 'Utilisateur introuvable', 404);
-  if (req.body.actif !== undefined) u.is_active = req.body.actif;
-  if (req.body.is_verified !== undefined) u.is_verified = req.body.is_verified;
-  ok(res, null, 'Utilisateur mis à jour');
+app.put('/api/admin/logements/:id/statut', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    await sb.from('logements').update({ statut: req.body.statut }).eq('id', parseInt(req.params.id));
+    ok(res, null, 'Statut mis à jour');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/admin/avis', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  const page  = parseInt(req.query.page)  || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  paginate(res, avis, page, limit);
+app.put('/api/admin/users/:id', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    await sb.from('users').update(req.body).eq('id', parseInt(req.params.id));
+    ok(res, null, 'Utilisateur mis à jour');
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.delete('/api/admin/avis/:id', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  const idx = avis.findIndex(a => a.id === parseInt(req.params.id));
-  if (idx >= 0) avis.splice(idx, 1);
-  ok(res, null, 'Avis supprimé');
+app.get('/api/admin/stats-regions', async (req, res) => {
+  try {
+    const u = getUser(req);
+    if (!u || u.role !== 'admin') return err(res, 'Accès refusé', 403);
+    const { data: logs } = await sb.from('logements').select('id,region_id,region_nom,statut,prix_par_mois');
+    const { data: resv } = await sb.from('reservations').select('logement_id,statut,montant_total');
+    const result = regions.map(r => {
+      const rLogs   = (logs||[]).filter(l => l.region_id === r.id);
+      const rLogIds = rLogs.map(l => l.id);
+      const rRes    = (resv||[]).filter(rv => rLogIds.includes(rv.logement_id));
+      const prices  = rLogs.filter(l => l.prix_par_mois).map(l => l.prix_par_mois);
+      return {
+        region: r.nom,
+        nb_annonces:    rLogs.filter(l => l.statut === 'actif').length,
+        nb_reservations: rRes.length,
+        revenus_total:  rRes.filter(rv => rv.statut === 'confirmee').reduce((s,rv) => s + rv.montant_total, 0),
+        prix_moyen:     prices.length ? Math.round(prices.reduce((s,p) => s+p,0) / prices.length) : 0,
+      };
+    });
+    ok(res, result);
+  } catch { err(res, 'Erreur serveur', 500); }
 });
 
-app.get('/api/admin/stats-regions', (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  ok(res, regions.map(r => ({
-    region: r.nom,
-    nb_annonces: logements.filter(l => l.region_id === r.id && l.statut === 'actif').length,
-    nb_reservations: reservations.filter(res => logements.find(l => l.id === res.logement_id && l.region_id === r.id)).length,
-    revenus_total: reservations.filter(res => logements.find(l => l.id === res.logement_id && l.region_id === r.id) && res.statut === 'confirmee').reduce((s,r) => s + r.montant_total, 0),
-    prix_moyen: logements.filter(l => l.region_id === r.id && l.prix_par_mois).reduce((s,l,_,a) => s + l.prix_par_mois/a.length, 0),
-  })));
-});
+// Paiements (simulation)
+app.post('/api/paiements/initier',  (req, res) => ok(res, { checkout_url: '#', ref: `LM-${Date.now()}` }));
+app.get('/api/paiements/verifier',  (req, res) => ok(res, { paid: true, statut: 'confirmee' }));
+app.post('/api/paiements/confirmer',(req, res) => ok(res, { paid: true, statut: 'confirmee' }));
 
 // ── Démarrage ──────────────────────────────────────────────────
-app.listen(8000, () => {
-  console.log('✅ Mock API LocaMaison démarré sur http://localhost:8000');
-  console.log('   Comptes test : admin@locamaison.sn / oumar.diallo@test.sn / ibrahima.sow@test.sn');
-  console.log('   Mot de passe : password');
-});
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(8000, () => {
+    console.log('✅ LocaMaison API démarré sur http://localhost:8000');
+    console.log('   Nécessite SUPABASE_URL et SUPABASE_SERVICE_KEY dans .env');
+  });
+}

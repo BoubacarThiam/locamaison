@@ -27,3 +27,4 @@ Thumbs.db
 .env
 .env.local
 config.local.php
+.vercel

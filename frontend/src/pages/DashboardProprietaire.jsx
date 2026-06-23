@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
@@ -9,15 +9,18 @@ const TABS = ['Tableau de bord', 'Mes annonces', 'Réservations', 'Messagerie'];
 
 export default function DashboardProprietaire() {
   const { user } = useAuth();
-  const [tab,          setTab]          = useState(0);
-  const [stats,        setStats]        = useState(null);
-  const [annonces,     setAnnonces]     = useState([]);
-  const [reservations, setReservations] = useState([]);
-  const [conversations, setConvs]       = useState([]);
-  const [chatWith,     setChatWith]     = useState(null);
-  const [messages,     setMessages]     = useState([]);
-  const [msgText,      setMsgText]      = useState('');
-  const [loading,      setLoading]      = useState(true);
+  const [tab,            setTab]          = useState(0);
+  const [stats,          setStats]        = useState(null);
+  const [annonces,       setAnnonces]     = useState([]);
+  const [reservations,   setReservations] = useState([]);
+  const [conversations,  setConvs]        = useState([]);
+  const [chatWith,       setChatWith]     = useState(null);
+  const [messages,       setMessages]     = useState([]);
+  const [msgText,        setMsgText]      = useState('');
+  const [loading,        setLoading]      = useState(true);
+  const [notifications,  setNotifications]= useState([]);
+  const [toast,          setToast]        = useState(null);  // notification toast visible
+  const lastNotifCount   = useRef(0);
 
   const loadStats = () =>
     api.get('/proprietaire/dashboard').then(r => setStats(r.data.data));
@@ -32,6 +35,38 @@ export default function DashboardProprietaire() {
     Promise.all([loadStats(), loadAnnonces(), loadReservations(), loadConvs()])
            .finally(() => setLoading(false));
   }, []);
+
+  // Polling notifications toutes les 5 secondes
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const { data } = await api.get('/proprietaire/notifications');
+        const notifs = data.data || [];
+        setNotifications(notifs);
+        const unreadCount = notifs.filter(n => !n.lu).length;
+        // Affiche un toast si de nouvelles notifications sont arrivées
+        if (unreadCount > lastNotifCount.current && lastNotifCount.current >= 0) {
+          const newest = notifs.find(n => !n.lu);
+          if (newest) setToast(newest);
+        }
+        lastNotifCount.current = unreadCount;
+      } catch { /* silencieux */ }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Marquer comme lues quand on ouvre l'onglet Réservations
+  useEffect(() => {
+    if (tab === 2 && notifications.some(n => !n.lu)) {
+      api.put('/proprietaire/notifications/read').then(() => {
+        setNotifications(prev => prev.map(n => ({ ...n, lu: true })));
+        lastNotifCount.current = 0;
+        setToast(null);
+      }).catch(() => {});
+    }
+  }, [tab]);
 
   const loadMessages = (uid) => {
     api.get(`/messages/${uid}`).then(r => setMessages(r.data.data || []));
@@ -56,9 +91,43 @@ export default function DashboardProprietaire() {
     loadAnnonces();
   };
 
+  const unreadCount = notifications.filter(n => !n.lu).length;
+
   return (
     <>
       <Navbar />
+
+      {/* ── Toast alerte nouvelle demande ── */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full animate-bounce-in">
+          <div className="bg-[#1B5E20] text-white rounded-2xl shadow-2xl p-4 border-l-4 border-[#F9A825]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <p className="font-bold text-sm flex items-center gap-2">
+                  <span className="text-lg">🔔</span>
+                  {toast.type === 'demande_location' ? 'Nouvelle demande de location !' : 'Nouvelle réservation !'}
+                </p>
+                <p className="text-[#A5D6A7] text-xs mt-1">
+                  {toast.data?.locataire_prenom} {toast.data?.locataire_nom}
+                  {toast.type === 'nouvelle_reservation'
+                    ? ` veut réserver "${toast.data?.logement_titre}"`
+                    : ` est intéressé par "${toast.data?.logement_titre}"`}
+                </p>
+                {toast.data?.locataire_tel && (
+                  <p className="text-[#A5D6A7] text-xs mt-0.5">Tél : {toast.data.locataire_tel}</p>
+                )}
+              </div>
+              <button onClick={() => setToast(null)} className="text-white/60 hover:text-white text-lg leading-none">×</button>
+            </div>
+            <button
+              onClick={() => { setTab(2); setToast(null); }}
+              className="mt-3 w-full bg-[#F9A825] text-[#1B5E20] font-semibold text-xs py-2 rounded-lg hover:bg-[#F57F17] transition-colors">
+              Voir les réservations →
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -70,13 +139,18 @@ export default function DashboardProprietaire() {
           </Link>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs avec badge notifications */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-8 overflow-x-auto">
           {TABS.map((t, i) => (
             <button key={i} onClick={() => setTab(i)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0
+                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 relative
                       ${tab === i ? 'bg-white text-[#1B5E20] shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
               {t}
+              {i === 2 && unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {unreadCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
