@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import LogementCard from '../components/LogementCard';
-import Footer from '../components/Footer';
-import { FallingPattern } from '../components/ui/falling-pattern';
 
 const REGIONS_ICONS = {
   'Dakar': '🏙️', 'Thiès': '🏘️', 'Saint-Louis': '⛵', 'Ziguinchor': '🌿',
@@ -57,15 +55,6 @@ export default function PageAccueil() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#0A2E0D]/70 via-[#1B5E20]/50 to-[#0A2E0D]/80" />
         </div>
-
-        {/* Animation d'arrière-plan — pluie de particules dorées */}
-        <FallingPattern
-          color="#F9A825"
-          backgroundColor="transparent"
-          duration={55}
-          blurIntensity="0.5em"
-          className="absolute inset-0 z-[1] pointer-events-none opacity-60 [mask-image:radial-gradient(ellipse_at_center,black,transparent_85%)]"
-        />
 
         {/* Content */}
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
@@ -280,8 +269,6 @@ export default function PageAccueil() {
           </div>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 }

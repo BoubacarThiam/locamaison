@@ -1,9 +1,21 @@
 import { Link } from 'react-router-dom';
+import { FallingPattern } from './ui/falling-pattern';
 
 export default function Footer() {
   return (
-    <footer style={{ background: 'linear-gradient(135deg, #0A1F0C 0%, #0F2D13 50%, #0A1F0C 100%)' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
+    <footer className="relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #0A1F0C 0%, #0F2D13 50%, #0A1F0C 100%)' }}>
+
+      {/* Animation d'arrière-plan — pluie de particules dorées */}
+      <FallingPattern
+        color="#F9A825"
+        backgroundColor="transparent"
+        duration={70}
+        blurIntensity="0.6em"
+        className="absolute inset-0 z-0 pointer-events-none opacity-25 [mask-image:linear-gradient(to_bottom,transparent,black_25%,black_75%,transparent)]"
+      />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
 
         {/* Top grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10 pb-12"
